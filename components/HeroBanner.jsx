@@ -2,7 +2,7 @@ export default function HeroBanner() {
   return (
     <section className="home-hero" aria-label="Attil restaurant introduction">
       <video className="home-hero-video" autoPlay muted loop playsInline poster="/images/hero.jpg" aria-hidden="true">
-        <source src="/images/promo.mp4" type="video/mp4" />
+        <source src="/herovideo.mp4" type="video/mp4" />
       </video>
       <div className="home-hero-overlay" />
       <div className="home-hero-grid" />
