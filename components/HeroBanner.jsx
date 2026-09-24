@@ -10,7 +10,7 @@ export default function HeroBanner() {
       <div className="home-hero-grid" />
       <div className="home-hero-copy">
         <p className="home-eyebrow">ATTIL MULTI CUISINE RESTAURANT</p>
-        <h1>Welcome to <span className="home-hero-logo" aria-label="Attil"><Image src="/attil%20copy.png" alt="Attil" width={240} height={120} priority /></span></h1>
+        <h1>Welcome to <span className="home-hero-logo" aria-label="Attil"><Image src="/attil copy.png" alt="Attil" width={1200} height={1600} priority /></span></h1>
         <p>Where every plate carries a story, every spice has a purpose, and every table is made for staying awhile.</p>
         <div className="home-hero-actions">
           <a className="home-button home-button-amber" href="/menu">Explore menu <span>↗</span></a>
