@@ -3,6 +3,9 @@ import HeroBanner from "@/components/HeroBanner";
 import MenuSection from "@/components/MenuSection";
 import ReviewsSection from "@/components/ReviewsSection";
 import RestaurantInterior from "@/components/RestaurantInterior";
+import AboutSecondSection from "@/components/AboutSecondSection";
+import InstagramVideoSection from "@/components/InstagramVideoSection";
+import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
 import { Cursor } from "@/components/site-experiences";
 
@@ -14,8 +17,11 @@ export default function Home() {
       <main>
         <HeroBanner />
         <MenuSection />
-        <ReviewsSection />
         <RestaurantInterior />
+        <ReviewsSection />
+        <AboutSecondSection />
+        <InstagramVideoSection />
+        <FAQSection />
       </main>
       <Footer />
     </div>

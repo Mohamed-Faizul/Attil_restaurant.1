@@ -7,9 +7,10 @@ import SharedNavbar from "@/components/Navbar";
 import MenuExperience from "@/components/MenuExperience";
 import AboutSecondSection from "@/components/AboutSecondSection";
 import AboutThirdSection from "@/components/AboutThirdSection";
-import InstagramVideoCarousel from "@/components/InstagramVideoCarousel";
+import InstagramVideoSection from "@/components/InstagramVideoSection";
+import FAQSection from "@/components/FAQSection";
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { cuisines, faqs, images, restaurant, reviews, specialties, type Dish } from "@/data/restaurant";
+import { cuisines, images, restaurant, reviews, specialties, type Dish } from "@/data/restaurant";
 
 function Button({ children, href }: { children: ReactNode; href: string }) {
   return <Link className="btn btn-amber" href={href} data-cursor="EXPLORE">{children}<span>↗</span></Link>;
@@ -80,18 +81,50 @@ function CTA() { return <section className="cta-panel" id="reserve"><div><Eyebro
 
 export function HomePage() { return <><Cursor /><SharedNavbar /><main><Hero /><CuisineSection /><SpecialtySlider /><Reviews /><CTA /></main><SharedFooter /></>; }
 
-function PageHero({ eyebrow, title, image = images.hero }: { eyebrow: string; title: ReactNode; image?: { src: string; alt: string } }) { return <section className="page-hero"><Image src={image.src} alt={image.alt} fill sizes="100vw" priority /><div className="page-hero-shade" /><div className="page-hero-copy"><Eyebrow>{eyebrow}</Eyebrow><h1>{title}</h1></div></section>; }
+function PageHero({ eyebrow, title, image = images.hero }: { eyebrow: string; title: ReactNode; image?: { src: string; alt: string } }) { return <section className="page-hero" id="hero"><Image src={image.src} alt={image.alt} fill sizes="100vw" priority /><div className="page-hero-shade" /><div className="page-hero-copy"><Eyebrow>{eyebrow}</Eyebrow><h1>{title}</h1></div></section>; }
 
 export function MenuPage() { return <><Cursor /><SharedNavbar /><MenuExperience /><SharedFooter /></>; }
 
 function Gallery() { const gallery = [images.interior, images.south, images.tandoor, images.biryani, images.grills]; const [active, setActive] = useState(0); return <section className="section-wrap gallery-section"><Reveal className="section-intro"><div><Eyebrow>THE ROOM / THE PLATE</Eyebrow><h2>Made for the<br /><em>whole table.</em></h2></div><a className="text-link" href={restaurant.instagram} target="_blank" rel="noreferrer">FOLLOW ON INSTAGRAM ↗</a></Reveal><div className="gallery-grid">{gallery.map((image, index) => <button key={image.src} className={active === index ? "gallery-item active" : "gallery-item"} onClick={() => setActive(index)} data-cursor="VIEW"><Image src={image.src} alt={image.alt} fill sizes="(max-width: 700px) 100vw, 25vw" /></button>)}</div></section>; }
 
-export function AboutPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="A TABLE WITH A STORY" title={<>Where tradition<br /><em>keeps moving.</em></>} image={images.interior} /><AboutSecondSection /><AboutThirdSection /><InstagramVideoCarousel /><SharedFooter /></>; }
+export function AboutPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="A TABLE WITH A STORY" title={<>Where tradition<br /><em>keeps moving.</em></>} image={images.interior} /><AboutSecondSection /><AboutThirdSection /><InstagramVideoSection /><SharedFooter /></>; }
 
-function ContactForm() { const [sent, setSent] = useState(false); return <form className="contact-form" onSubmit={(event) => { event.preventDefault(); setSent(true); }}><Eyebrow>LET'S TALK FOOD</Eyebrow><label>Name<input required placeholder="Your name" /></label><label>Email<input required type="email" placeholder="you@example.com" /></label><label>Phone<input required placeholder="Your number" /></label><label>Message<textarea required rows={4} placeholder="Tell us what is on your mind" /></label><button className="btn btn-amber" type="submit">{sent ? "Message received ✓" : "Send message ↗"}</button></form>; }
+function ContactForm() {
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setStatus(null);
+    setIsSending(true);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          email: formData.get("email"),
+          phone: formData.get("phone"),
+          message: formData.get("message"),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to send your message.");
+      form.reset();
+      setStatus({ type: "success", message: result.message });
+    } catch (error) {
+      setStatus({ type: "error", message: error instanceof Error ? error.message : "Unable to send your message." });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return <form className="contact-form" onSubmit={submit}><Eyebrow>LET'S TALK FOOD</Eyebrow><label>Name<input name="name" required placeholder="Your name" /></label><label>Email<input name="email" required type="email" placeholder="you@example.com" /></label><label>Phone<input name="phone" required placeholder="Your number" /></label><label>Message<textarea name="message" required rows={4} placeholder="Tell us what is on your mind" /></label>{status && <p role="status" aria-live="polite" className={status.type === "success" ? "form-success" : "form-error"}>{status.message}</p>}<button className="btn btn-amber" type="submit" disabled={isSending}>{isSending ? "Sending..." : "Send message ↗"}</button></form>;
+}
 
 function ContactDetails() { return <div className="contact-details"><Eyebrow>FIND ATTIL</Eyebrow>{[["PHONE", restaurant.phone], ["EMAIL", restaurant.email], ["ADDRESS", restaurant.address]].map(([label, value]) => <div className="contact-line" key={label}><small>{label}</small><strong>{value}</strong></div>)}<div className="map-card"><div className="map-pin">ATTIL</div><span>9.97° N · 77.62° E</span><div className="map-actions"><button type="button">+</button><button type="button">−</button><a className="btn btn-outline" href={restaurant.maps} target="_blank" rel="noreferrer">Get directions ↗</a></div></div></div>; }
 
-function FAQ() { const [open, setOpen] = useState<number | null>(null); return <section className="section-wrap faq-section"><Eyebrow>GOOD TO KNOW</Eyebrow><h2>Questions, <em>answered.</em></h2>{faqs.map((item, index) => <div className="faq-item" key={item.question}><button onClick={() => setOpen(open === index ? null : index)}>{item.question}<span>{open === index ? "−" : "+"}</span></button>{open === index && <p>{item.answer}</p>}</div>)}</section>; }
-
-export function ContactPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="COME FIND US" title={<>Let's make<br /><em>it a table.</em></>} image={images.contact} /><main className="section-wrap contact-layout"><ContactDetails /><ContactForm /></main><FAQ /><a className="whatsapp" href={`https://wa.me/91${restaurant.phone}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">◌</a><SharedFooter /></>; }
+export function ContactPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="COME FIND US" title={<>Let's make<br /><em>it a table.</em></>} image={images.contact} /><main className="section-wrap contact-layout"><ContactDetails /><ContactForm /></main><FAQSection /><SharedFooter /></>; }
