@@ -17,8 +17,7 @@ export default function Navbar() {
   useEffect(() => {
     const updateLogoVisibility = () => {
       const hero = document.getElementById("hero");
-      const isMobileOrTablet = window.innerWidth < 1024;
-      setIsLogoHidden(Boolean(hero && isMobileOrTablet && window.scrollY > hero.offsetHeight));
+      setIsLogoHidden(Boolean(hero && hero.getBoundingClientRect().bottom <= 0));
     };
 
     updateLogoVisibility();

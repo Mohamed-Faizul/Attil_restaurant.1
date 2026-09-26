@@ -7,7 +7,7 @@ import SharedNavbar from "@/components/Navbar";
 import MenuExperience from "@/components/MenuExperience";
 import AboutSecondSection from "@/components/AboutSecondSection";
 import AboutThirdSection from "@/components/AboutThirdSection";
-import InstagramVideoSection from "@/components/InstagramVideoSection";
+import InstagramVideoCarousel from "@/components/InstagramVideoSection";
 import FAQSection from "@/components/FAQSection";
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { cuisines, images, restaurant, reviews, specialties, type Dish } from "@/data/restaurant";
@@ -52,7 +52,7 @@ function Hero() {
   const slides = [images.hero, images.north, images.south, images.chinese];
   const [active, setActive] = useState(0);
   useEffect(() => { const timer = window.setInterval(() => setActive((value) => (value + 1) % slides.length), 5000); return () => window.clearInterval(timer); }, [slides.length]);
-  return <section className="hero-stage"><div className="hero-media">{slides.map((image, index) => <Image key={image.src} src={image.src} alt={image.alt} fill priority={index === 0} sizes="100vw" className={index === active ? "is-active" : ""} />)}</div><div className="hero-grid" /><div className="hero-copy"><Eyebrow>ATTIL MULTI CUISINE RESTAURANT</Eyebrow><h1>Where flavour<br /><em>meets the moment.</em></h1><p>Authentic global flavours, a warm table, and the feeling that dinner can be an occasion.</p><div className="hero-actions"><Button href="/menu">Explore menu</Button><Link href="/about" className="btn btn-outline">Discover Attil <span>↗</span></Link></div><div className="hero-dots">{slides.map((slide, index) => <button key={slide.src} className={index === active ? "is-active" : ""} onClick={() => setActive(index)} aria-label={`Show hero slide ${index + 1}`} />)}</div></div><div className="hero-index">0{active + 1}<span>/ 04</span></div></section>;
+  return <section className="hero-stage" id="hero"><div className="hero-media">{slides.map((image, index) => <Image key={image.src} src={image.src} alt={image.alt} fill priority={index === 0} sizes="100vw" className={index === active ? "is-active" : ""} />)}</div><div className="hero-grid" /><div className="hero-copy"><Eyebrow>ATTIL MULTI CUISINE RESTAURANT</Eyebrow><h1>Where flavour<br /><em>meets the moment.</em></h1><p>Authentic global flavours, a warm table, and the feeling that dinner can be an occasion.</p><div className="hero-actions"><Button href="/menu">Explore menu</Button><Link href="/about" className="btn btn-outline">Discover Attil <span>↗</span></Link></div><div className="hero-dots">{slides.map((slide, index) => <button key={slide.src} className={index === active ? "is-active" : ""} onClick={() => setActive(index)} aria-label={`Show hero slide ${index + 1}`} />)}</div></div><div className="hero-index">0{active + 1}<span>/ 04</span></div></section>;
 }
 
 function CuisineSection() {
@@ -87,7 +87,7 @@ export function MenuPage() { return <><Cursor /><SharedNavbar /><MenuExperience 
 
 function Gallery() { const gallery = [images.interior, images.south, images.tandoor, images.biryani, images.grills]; const [active, setActive] = useState(0); return <section className="section-wrap gallery-section"><Reveal className="section-intro"><div><Eyebrow>THE ROOM / THE PLATE</Eyebrow><h2>Made for the<br /><em>whole table.</em></h2></div><a className="text-link" href={restaurant.instagram} target="_blank" rel="noreferrer">FOLLOW ON INSTAGRAM ↗</a></Reveal><div className="gallery-grid">{gallery.map((image, index) => <button key={image.src} className={active === index ? "gallery-item active" : "gallery-item"} onClick={() => setActive(index)} data-cursor="VIEW"><Image src={image.src} alt={image.alt} fill sizes="(max-width: 700px) 100vw, 25vw" /></button>)}</div></section>; }
 
-export function AboutPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="A TABLE WITH A STORY" title={<>Where tradition<br /><em>keeps moving.</em></>} image={images.interior} /><AboutSecondSection /><AboutThirdSection /><InstagramVideoSection /><SharedFooter /></>; }
+export function AboutPage() { return <><Cursor /><SharedNavbar /><PageHero eyebrow="A TABLE WITH A STORY" title={<>Where tradition<br /><em>keeps moving.</em></>} image={images.interior} /><AboutSecondSection /><AboutThirdSection /><InstagramVideoCarousel /><SharedFooter /></>; }
 
 function ContactForm() {
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);

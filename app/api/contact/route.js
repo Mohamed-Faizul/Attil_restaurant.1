@@ -5,26 +5,82 @@ import mysql from "mysql2/promise";
 export const runtime = "nodejs";
 
 let pool;
+let databaseReady;
+
+function getDatabaseConfig() {
+  const { DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT } = process.env;
+  const port = Number(DB_PORT);
+
+  if (!DB_HOST || !DB_USER || !DB_PASS || !DB_NAME || !DB_PORT || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("Database configuration is incomplete or invalid");
+  }
+
+  return { host: DB_HOST, user: DB_USER, password: DB_PASS, database: DB_NAME, port };
+}
+
+function getDatabaseLogContext() {
+  const { DB_HOST, DB_USER, DB_NAME, DB_PORT } = process.env;
+  return { host: DB_HOST, port: DB_PORT, user: DB_USER, database: DB_NAME };
+}
 
 function getPool() {
   if (pool) return pool;
 
-  const { DB_HOST, DB_USER, DB_PASS, DB_NAME } = process.env;
-  if (!DB_HOST || !DB_USER || !DB_PASS || !DB_NAME) {
-    throw new Error("Database configuration is incomplete");
-  }
+  const config = getDatabaseConfig();
 
   pool = mysql.createPool({
-    host: DB_HOST,
-    user: DB_USER,
-    password: DB_PASS,
-    database: DB_NAME,
+    ...config,
+    ssl: { rejectUnauthorized: true },
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
   });
 
   return pool;
+}
+
+async function ensureDatabaseReady() {
+  const connectionDetails = getDatabaseLogContext();
+  let connection;
+
+  try {
+    const config = getDatabaseConfig();
+    Object.assign(connectionDetails, { port: config.port });
+    connection = await getPool().getConnection();
+    await connection.ping();
+    console.info("TiDB connection verified", connectionDetails);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS contact_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(254) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.info("TiDB contact_messages table verified", connectionDetails);
+  } catch (error) {
+    console.error("TiDB connection or schema check failed", {
+      ...connectionDetails,
+      code: error.code,
+      message: error.message,
+    });
+    throw error;
+  } finally {
+    connection?.release();
+  }
+}
+
+function prepareDatabase() {
+  if (!databaseReady) {
+    databaseReady = ensureDatabaseReady().catch((error) => {
+      databaseReady = undefined;
+      throw error;
+    });
+  }
+
+  return databaseReady;
 }
 
 function getTransporter() {
@@ -41,9 +97,30 @@ function getTransporter() {
   });
 }
 
+function logOperationError(operation, error) {
+  console.error(`Contact ${operation} failed`, {
+    ...getDatabaseLogContext(),
+    code: error.code,
+    errno: error.errno,
+    sqlState: error.sqlState,
+    message: error.message,
+  });
+}
+
 export async function POST(request) {
+  let body;
+
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Please submit a valid contact form." }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Please submit a valid contact form." }, { status: 400 });
+  }
+
+  try {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
@@ -57,17 +134,49 @@ export async function POST(request) {
       return NextResponse.json({ error: "Please provide a valid email address." }, { status: 400 });
     }
 
+    if (name.length > 100 || email.length > 254 || phone.length > 20 || message.length > 65535) {
+      return NextResponse.json({ error: "One or more contact fields are too long." }, { status: 400 });
+    }
+
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminEmail) throw new Error("ADMIN_EMAIL is not configured");
 
-    const transporter = getTransporter();
-    const details = `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\n\nMessage:\n${message}`;
-
-    await Promise.all([
-      getPool().execute(
+    try {
+      await prepareDatabase();
+      await getPool().execute(
         "INSERT INTO contact_messages (name, email, phone, message) VALUES (?, ?, ?, ?)",
-        [name, email, phone, message],
-      ),
+        [name, email, phone, message]
+      );
+      console.info("Contact message stored in TiDB", {
+        database: getDatabaseConfig().database,
+        table: "contact_messages",
+      });
+    } catch (error) {
+      logOperationError("database storage", error);
+      return NextResponse.json(
+        { error: "We could not store your message in the contact database. Please try again later." },
+        { status: 503 }
+      );
+    }
+
+    let transporter;
+    try {
+      transporter = getTransporter();
+      await transporter.verify();
+      console.info("Contact email transport verified");
+    } catch (error) {
+      console.error("Contact email transport verification failed", {
+        code: error.code,
+        message: error.message,
+      });
+      return NextResponse.json(
+        { error: "Your message was stored, but email delivery is temporarily unavailable." },
+        { status: 502 }
+      );
+    }
+
+    const details = `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\n\nMessage:\n${message}`;
+    const emailResults = await Promise.allSettled([
       transporter.sendMail({
         from: process.env.SMTP_USER,
         to: adminEmail,
@@ -83,9 +192,37 @@ export async function POST(request) {
       }),
     ]);
 
+    const emailFailures = emailResults.flatMap((result, index) => {
+      if (result.status === "fulfilled") return [];
+      const recipient = index === 0 ? "admin" : "customer";
+      console.error(`Contact ${recipient} email failed`, {
+        code: result.reason.code,
+        message: result.reason.message,
+      });
+      return [recipient];
+    });
+
+    if (emailFailures.length) {
+      const deliveryIssues = emailFailures.includes("admin") && emailFailures.includes("customer")
+        ? "restaurant and confirmation emails could not be sent"
+        : emailFailures[0] === "admin"
+          ? "the restaurant notification could not be sent"
+          : "the confirmation email could not be sent";
+      return NextResponse.json(
+        { error: `Your message was stored, but ${deliveryIssues}. Please contact the restaurant directly if needed.` },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({ message: "Your message has been sent successfully." });
   } catch (error) {
-    console.error("Contact submission failed:", error);
-    return NextResponse.json({ error: "We could not save or send your message right now. Please try again later." }, { status: 500 });
+    console.error("Contact submission configuration failed", {
+      code: error.code,
+      message: error.message,
+    });
+    return NextResponse.json(
+      { error: "Contact service configuration is incomplete. Please try again later." },
+      { status: 500 }
+    );
   }
 }
